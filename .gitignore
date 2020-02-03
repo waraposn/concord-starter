@@ -4,9 +4,6 @@
 **/terraform.tfstate
 *.auto.tfvars
 
-# Generated config
-**/config
-
 # Ansible
 **/*.retry
 
