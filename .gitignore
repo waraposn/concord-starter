@@ -1,0 +1,30 @@
+# Terraform
+**/.terraform
+**/terraform.tfstate.backup
+**/terraform.tfstate
+*.auto.tfvars
+
+# Generated config
+**/config
+
+# Ansible
+**/*.retry
+
+# OSX junk
+**/*.DS_Store
+
+# Archives
+*.swp
+*.tar
+*.tgz
+*.gz
+
+# Binary material
+**/target
+
+# Private keys
+*.pem
+
+# Maven
+pom.xml
+*.iml

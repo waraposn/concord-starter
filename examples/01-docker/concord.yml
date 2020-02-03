@@ -1,0 +1,13 @@
+configuration:
+  runner:
+    events:
+      # This shows some nice visual debugging information in the console.
+      recordTaskInVars: true
+
+flows:
+  default:
+    - docker: jvanzyl/concord-alpine
+      cmd: |
+        echo
+        echo "Hello World! I am a Docker job being run from Concord!"
+        echo

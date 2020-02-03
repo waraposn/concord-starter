@@ -1,0 +1,457 @@
+# TODO
+# - look at https://www.testcontainers.org
+# - integrate Square Keywhiz
+# - integrate Hashicorp Vault
+# - fix for: https://www.linuxuprising.com/2018/07/how-to-fix-could-not-get-lock.html how can this  exist for 10 years?
+# - How to compose simple tasks like provisioning a compute or set of computes
+# - major versions of OS: Ubuntu, Centos
+# - integrate 'aws sts assume role' into the Terraform flows
+# - how to deal with service accounts in a normalized way for Git checkouts: how should service
+#   accounts be specified so that it works the same way for each user.
+# - making inventory.ini processing standard, how to compose the logic?
+# - verify all the inputs to the flows, is there a way to provide better error messages?
+# - implement logic to run ansible if terraform is complete instead of exiting
+# - how to making injecting custom vpc and security group information easy?
+# - use AWS credentials to generate a keypair to try and do a complete end to end demo with as little setup on the user's part as possible
+# - just make a concord wizard to help users setup? use this or the scripts
+# - integrate composing payloads using imports
+# - integrate checkpoints
+# - non-prod vs prod flows
+# - common terraform foundation files like in Matija's setup
+# - generic resource tagging
+# - preprocessor to allow more flexibility:
+#   - inject tags: use common flows but specify company specific tags
+#   - use different AWS provider configuration based on use: sts assume role versus envars or ~./aws/credentials
+# - make safer template flows, do all the checking in the template.yml and call the client flow if necessary
+# - use _attachments to preserve inventory
+# - ability to pretty print json in debug output
+
+configuration:
+  runner:
+    events:
+      recordTaskInVars: true
+
+  dependencies:
+    - "mvn://com.walmartlabs.concord.plugins:terraform-task:1.17.0"
+    - "mvn://com.walmartlabs.concord.plugins.basic:ansible-tasks:1.34.2"
+    - "mvn://com.walmartlabs.concord.plugins:git:1.17.0"
+
+  arguments:
+    flowDebug: true
+    # Ansible - TODO cleanup
+    keypair: concord-agent
+    # AWS - TODO cleanup
+    privateKeyPem: "${keypair}-pem"
+    # Ansible - TODO cleanup
+    computeAdminUser: "ubuntu"
+    # ------------------------------------------------------------------------------------
+    # Input
+    # ------------------------------------------------------------------------------------
+    inputFormDisplay: true
+    # ------------------------------------------------------------------------------------
+    # Git
+    # ------------------------------------------------------------------------------------
+    gitClone: true
+    gitRepositories: null
+    gitHubAccessTokenName: "${projectInfo.orgName}.${gitHubServiceAccountUser}.github-access-token"
+    gitHubAccessToken: "${crypto.exportAsString(projectInfo.orgName, gitHubAccessTokenName, null)}"
+    gitDefaultWorkDirectory: "checkout"
+    # ------------------------------------------------------------------------------------
+    # AWS
+    # ------------------------------------------------------------------------------------
+    awsRegion: us-west-2
+    awsInstanceType: t2.micro
+    awsSshPort: 22
+    awsInstancePublic: true
+    awsInstanceName: concord-01
+    # ------------------------------------------------------------------------------------
+    # Docker
+    # ------------------------------------------------------------------------------------
+    dockerImage: null
+    dockerCommand: null
+    # ------------------------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------------------------
+    adminUserMapping:
+      ubuntu: "ubuntu"
+      centos: "centos"
+      debian: "admin"
+      amazon: "ec2-user"
+
+#TODO: add checkpoints
+
+flows:
+  default:
+    - if: ${dockerImage != null}
+      then:
+        - dockerJobFlow
+      else:
+        - if: ${terraformDestroy}
+          then:
+            - processConfiguration
+            #- validateConfiguration (done now in the terraform and ansible flows respectively)
+            - terraformDestroyFlow
+          else:
+            - gitFlowForInput
+            - inputForm
+            - gitFlow
+            - processConfiguration
+            - validateConfiguration
+            - terraformFlow
+            - ansibleFlow
+  # --------------------------------------------------------------------------------------
+  # Input
+  # --------------------------------------------------------------------------------------
+  gatherInputFormData:
+    - if: ${inputFormDisplay}
+      then:
+      - log: "gatherInputFormData"
+
+  inputForm:
+    - if: ${inputFormDisplay}
+      then:
+      - form: inputForm
+        fields: ${inputFormFields}
+        yield: true
+
+  processConfiguration:
+    - log: "processConfiguration"
+
+  # --------------------------------------------------------------------------------------
+  # Configuration
+  #
+  # NOTES:
+  # - https://stackoverflow.com/questions/44833161/iterating-over-array-with-nashorn
+  #
+  # TODO: This narly Javascript can be replaced by a small tool placed in the context.
+  # --------------------------------------------------------------------------------------
+  validateConfiguration:
+    - script: javascript
+      body: |
+        var Paths = Java.type("java.nio.file.Paths");
+        execution.setVariable("terraformDirectoryFile", Paths.get(workDir, terraformDirectory).toFile());
+        execution.setVariable("ansiblePlaybookFile", Paths.get(workDir, ansiblePlaybook).toFile());
+        if (terraformVarFiles != null) {
+          var ArrayList = Java.type('java.util.ArrayList');
+          var validTerraformVarFiles = new ArrayList();
+          var forEach = Array.prototype.forEach;
+          forEach.call(terraformVarFiles, function(f) {
+            if (Paths.get(f).toFile().exists()) {
+              validTerraformVarFiles.add(f);
+            }
+          });
+          execution.setVariable("terraformVarFiles", validTerraformVarFiles);
+        }
+        if(terraformExtraVars != null) {
+          if(typeof assumeRoleArn !== 'undefined' && assumeRoleArn != null) {
+            terraformExtraVars.put("assume_role_arn", assumeRoleArn);
+            terraformExtraVars.put("tf_state_assume_role_arn", assumeRoleArn);
+          }
+        }
+        if (ansibleVarsFiles != null) {
+          var ArrayList = Java.type('java.util.ArrayList');
+          var validAnsibleVarsFiles = new ArrayList();
+          var forEach = Array.prototype.forEach;
+          forEach.call(ansibleVarsFiles, function(f) {
+            if (Paths.get(f).toFile().exists()) {
+              validAnsibleVarsFiles.add(f);
+            }
+          });
+          execution.setVariable("ansibleVarsFiles", validAnsibleVarsFiles);
+        }
+    - if: ${flowDebug}
+      then:
+      - log: "!!! terraformDirectory: ${terraformDirectory}"
+      - log: "!!! terraformDirectoryFile: ${terraformDirectoryFile} ${terraformDirectoryFile.exists()}"
+      - log: "!!! terraformVarFiles: ${terraformVarFiles}"
+      - log: "!!! ansiblePlaybook: ${ansiblePlaybook}"
+      - log: "!!! ansiblePlaybookFile: ${ansiblePlaybookFile} ${ansiblePlaybookFile.exists()}"
+      - log: "!!! ansibleVarsFiles: ${ansibleVarsFiles}"
+  # --------------------------------------------------------------------------------------
+  # Git
+  #
+  # Iterate through the specified git repositories and clone them into their respective
+  # working directories.
+  #
+  # TODO: Document a decent way to tie the git working directories to Terraform/Ansible
+  # tasks. This can be nicely done in the users concord.yml.
+  # --------------------------------------------------------------------------------------
+  gitFlowForInput:
+    - if: ${gitClone && context.hasVariable('gitRepositoriesForInput')}
+      then:
+        - call: gitCloneFlow
+          withItems: ${gitRepositoriesForInput}
+
+  gitFlow:
+    - if: ${gitClone && context.hasVariable('gitRepositories')}
+      then:
+        - call: gitCloneFlow
+          withItems: ${gitRepositories}
+
+  gitCloneFlow:
+    - log: "Cloning ${item.repository} as ${gitHubServiceAccountUser} with access token ...${gitHubAccessToken.substring(37,40)}"
+    - task: git
+      in:
+        action: clone
+        url: ${item.repository}
+        workingDir: "${item.workingDir != null ? item.workingDir : gitDefaultWorkDirectory}"
+        baseBranch: "${item.branch != null ? item.branch : 'master'}"
+        out: response
+        ignoreErrors: false
+        auth:
+          basic:
+            username: ${gitHubServiceAccountUser}
+            token: ${gitHubAccessToken}
+    - if: "${!response.ok}"
+      then:
+      - log: "Clone action failed: ${response.error}"
+
+  # --------------------------------------------------------------------------------------
+  # Terraform
+  # --------------------------------------------------------------------------------------
+  terraformFlow:
+
+    - set:
+        terraformDebug: true
+        terraformDestroy: false
+        terraformExecutePlan: true
+        terraformDirectory: "terraform"
+        terraformVersion: "0.11.14"
+        terraformVarFiles: null
+        terraformExtraVars:
+          aws_region: ${awsRegion}
+          aws_access_key: "${crypto.exportAsString(projectInfo.orgName, 'aws-access-key-id', null)}"
+          aws_secret_key: "${crypto.exportAsString(projectInfo.orgName, 'aws-secret-access-key', null)}"
+          instance_type: ${awsInstanceType}
+          ssh_port: ${awsSshPort}
+          private_key_pem: "${crypto.exportAsString(projectInfo.orgName, privateKeyPem, null)}"
+          key_pair_name: "${keypair}"
+          admin_user: ${computeAdminUser}
+          instance_public: ${awsInstancePublic}
+          instance_name: ${awsInstanceName}
+
+    - script: javascript
+      body: |
+        var Paths = Java.type("java.nio.file.Paths");
+        execution.setVariable("terraformDirectoryFile", Paths.get(workDir, terraformDirectory).toFile());
+        execution.setVariable("ansiblePlaybookFile", Paths.get(workDir, ansiblePlaybook).toFile());
+        if (terraformVarFiles != null) {
+          var ArrayList = Java.type('java.util.ArrayList');
+          var validTerraformVarFiles = new ArrayList();
+          var forEach = Array.prototype.forEach;
+          forEach.call(terraformVarFiles, function(f) {
+            if (Paths.get(f).toFile().exists()) {
+              validTerraformVarFiles.add(f);
+            }
+          });
+          execution.setVariable("terraformVarFiles", validTerraformVarFiles);
+        }
+        if(terraformExtraVars != null) {
+          if(typeof assumeRoleArn !== 'undefined' && assumeRoleArn != null) {
+            terraformExtraVars.put("assume_role_arn", assumeRoleArn);
+            terraformExtraVars.put("tf_state_assume_role_arn", assumeRoleArn);
+          }
+        }
+
+    - if: ${flowDebug}
+      then:
+        - log: "!!! terraformDirectory: ${terraformDirectory}"
+        - log: "!!! terraformDirectoryFile: ${terraformDirectoryFile} ${terraformDirectoryFile.exists()}"
+        - log: "!!! terraformVarFiles: ${terraformVarFiles}"
+        - log: "!!! terraformExecutePlan = ${terraformExecutePlan}"
+        - log: "!!! terraformDirectoryFile.exists() = ${terraformDirectoryFile.exists()}"
+    - if: ${terraformExecutePlan && terraformDirectoryFile.exists()}
+      then:
+        - if: ${flowDebug}
+          then:
+            - log: "!!! Executing Terraform plan..."
+            - log: "!!! terraformDirectory = ${terraformDirectory}..."
+        - task: terraform
+          in:
+            toolVersion: "${terraformVersion}"
+            debug: "${terraformDebug}"
+            verbose: "${terraformDebug}"
+            action: plan
+            dir: "${terraformDirectory}"
+            extraVars: ${terraformExtraVars}
+            varFiles: ${terraformVarFiles}
+
+        - if: ${!result.hasChanges}
+          then:
+            - log: "No changes planned, stopping..."
+            - exit
+
+        - form: approvalForm
+          fields:
+            - plan: { type: "string", readonly: true, value: "${result.output.replace('${', '#{')}" }
+            - approved: { type: "boolean" }
+          values:
+            processId: "${txId}"
+          yield: true
+
+        - if: ${!approvalForm.approved}
+          then:
+            - throw: "The plan was not approved"
+
+    - if: ${terraformExecutePlan  && terraformDirectoryFile.exists()}
+      then:
+        - if: ${flowDebug}
+          then:
+            - log: "!!! Executing Terraform apply in ${terraformDirectory}"
+        - task: terraform
+          in:
+            toolVersion: "${terraformVersion}"
+            debug: ${terraformDebug}
+            verbose: ${terraformDebug}
+            action: apply
+            plan: ${result.planPath}
+      else:
+        - if: ${flowDebug}
+          then:
+            - log: "!!! Executing Terraform apply in ${terraformDirectory}"
+        - task: terraform
+          in:
+            toolVersion: "${terraformVersion}"
+            debug: ${terraformDebug}
+            verbose: ${terraformDebug}
+            action: apply
+            dir: ${terraformDirectory}
+            extraVars: ${terraformExtraVars}
+            varFiles: ${terraformVarFiles}
+
+    - task: terraform
+      in:
+        toolVersion: "${terraformVersion}"
+        debug: ${terraformDebug}
+        verbose: ${terraformDebug}
+        action: output
+
+  terraformDestroyFlow:
+    - if: ${flowDebug}
+      then:
+        - log: "!!! terraformExecutePlan = ${terraformExecutePlan}"
+        - log: "!!! terraformDirectoryFile.exists() = ${terraformDirectoryFile.exists()}"
+    - if: ${terraformDirectoryFile.exists()}
+      then:
+        - if: ${flowDebug}
+          then:
+            - log: "!!! Executing Terraform plan..."
+            - log: "!!! terraformDirectory = ${terraformDirectory}..."
+        - task: terraform
+          in:
+            toolVersion: "${terraformVersion}"
+            debug: "${terraformDebug}"
+            verbose: "${terraformDebug}"
+            action: plan
+            dir: "${terraformDirectory}"
+            extraVars: ${terraformExtraVars}
+            varFiles: ${terraformVarFiles}
+            destroy: true
+
+        - if: ${!result.hasChanges}
+          then:
+            - log: "No changes planned, stopping..."
+            - exit
+
+        - form: approvalForm
+          fields:
+            - plan: { type: "string", readonly: true, value: "${result.output}" }
+            - approved: { type: "boolean" }
+          values:
+            processId: "${txId}"
+          yield: true
+
+        - if: ${!approvalForm.approved}
+          then:
+            - throw: "The plan was not approved"
+
+    - log: "!!! terraformExecutePlan = ${terraformExecutePlan}"
+    - log: "!!! terraformDirectoryFile = ${terraformDirectoryFile}"
+    - log: "!!! terraformDirectoryFile.exists() = ${terraformDirectoryFile.exists()}"
+
+    #TODO: why doesn't terraformDirectoryFile exist
+    #- if: ${terraformExecutePlan && terraformDirectoryFile.exists()}
+    - if: ${flowDebug}
+      then:
+        - log: "!!! Executing Terraform apply in ${terraformDirectory}"
+    - task: terraform
+      in:
+        toolVersion: "${terraformVersion}"
+        debug: ${terraformDebug}
+        verbose: ${terraformDebug}
+        action: apply
+        plan: ${result.planPath}
+
+  # --------------------------------------------------------------------------------------
+  # Ansible
+  # --------------------------------------------------------------------------------------
+  ansibleFlow:
+
+    - set:
+        ansibleDebug: false
+        ansibleVerbose: 0
+        ansiblePlaybook: "ansible/playbook.yml"
+        ansiblePythonInterpreter: "/usr/bin/python3"
+        ansibleRoles: null
+        ansibleVarsFiles: null
+        ansibleUpdateUbuntu: true
+        ansibleUpgradeUbuntu: true
+        ansibleInventoryFile: "inventory.ini"
+        ansiblePackagesToInstall:
+          - mc
+
+    - script: javascript
+      body: |
+        var Paths = Java.type("java.nio.file.Paths");
+        if (ansibleVarsFiles != null) {
+          var ArrayList = Java.type('java.util.ArrayList');
+          var validAnsibleVarsFiles = new ArrayList();
+          var forEach = Array.prototype.forEach;
+          forEach.call(ansibleVarsFiles, function(f) {
+            if (Paths.get(f).toFile().exists()) {
+              validAnsibleVarsFiles.add(f);
+            }
+          });
+          execution.setVariable("ansibleVarsFiles", validAnsibleVarsFiles);
+        }
+
+    - if: ${flowDebug}
+      then:
+        - log: "!!! ansiblePlaybook: ${ansiblePlaybook}"
+        - log: "!!! ansiblePlaybookFile: ${ansiblePlaybookFile} ${ansiblePlaybookFile.exists()}"
+        - log: "!!! ansibleVarsFiles: ${ansibleVarsFiles}"
+
+    - if: ${ansiblePlaybookFile.exists()}
+      then:
+        - task: ansible
+          in:
+            debug: "${ansibleDebug}"
+            verbose: ${ansibleVerbose}
+            playbook: "${ansiblePlaybook}"
+            roles: ${ansibleRoles}
+            extraVars:
+              ansible_python_interpreter: ${ansiblePythonInterpreter}
+              packages_to_install: ${ansiblePackagesToInstall}
+              update_ubuntu: ${ansibleUpdateUbuntu}
+              upgrade_ubuntu: ${ansibleUpgradeUbuntu}
+              workspace: ${workDir}
+            extraVarsFiles: ${ansibleVarsFiles}
+            auth:
+              privateKey:
+                user: "${computeAdminUser}"
+                secret:
+                  org: ${projectInfo.orgName}
+                  name: "${keypair}"
+            inventoryFile: "${ansibleInventoryFile}"
+            config:
+              ssh_connection:
+                retries: 10 # wait for SSH to come up
+  # --------------------------------------------------------------------------------------
+  # Docker
+  # --------------------------------------------------------------------------------------
+  dockerJobFlow:
+    - docker: ${dockerImage}
+      cmd: "${dockerCommand != null ? dockerCommand : '/workspace/concord/job.sh' }"
+      env:
+        AWS_ACCESS_KEY_ID: "${crypto.exportAsString(projectInfo.orgName, 'aws-access-key-id', null)}"
+        AWS_SECRET_ACCESS_KEY: "${crypto.exportAsString(projectInfo.orgName, 'aws-secret-access-key', null)}"

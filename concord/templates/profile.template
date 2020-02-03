@@ -1,0 +1,87 @@
+# ------------------------------------------------------------------------------
+# Concord
+# ------------------------------------------------------------------------------
+CONCORD_VERSION=1.39.3
+CONCORD_ORGANIZATION=${USER}
+CONCORD_DOCKER_NAMESPACE=walmartlabs
+CONCORD_HOST_PORT=localhost:8001
+# This is the default API token Concord ships with. Don't use this in production.
+CONCORD_API_TOKEN=auBy4eDWrKWsyhiDp3AQiw
+CONCORD_EXTERNAL_HOST=http://concord.ngrok.io
+CONCORD_ACCOUNT="experimentation"
+
+# ------------------------------------------------------------------------------
+# AWS
+# ------------------------------------------------------------------------------
+AWS_USER=${USER}
+AWS_ACCOUNT=${CONCORD_ACCOUNT}
+AWS_CREDENTIALS=$HOME/.aws/credentials
+AWS_PROFILE=${AWS_ACCOUNT}
+AWS_KEYPAIR=${AWS_USER}
+AWS_PEM=${AWS_KEYPAIR}.pem
+
+# ------------------------------------------------------------------------------
+# Azure
+# ------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# GKE
+# ------------------------------------------------------------------------------
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_HOSTED_DOMAIN=
+
+# ------------------------------------------------------------------------------
+# Admin
+# ------------------------------------------------------------------------------
+ADMIN_USER=admin
+ADMIN_USER_PASSWORD=
+ADMIN_USER_EMAIL=
+
+# ------------------------------------------------------------------------------
+# GitHub
+# ------------------------------------------------------------------------------
+# To use the Git task and perform operations against github.com you need to
+# provide a user and access token.
+# ------------------------------------------------------------------------------
+GH_USER=
+GH_ACCESS_TOKEN=
+GH_DOMAIN=github.com
+GH_WEBHOOK_SECRET=
+
+# ------------------------------------------------------------------------------
+# Docker
+# ------------------------------------------------------------------------------
+DOCKER_REGISTRY=
+DOCKER_REGISTRY_USERNAME=
+DOCKER_REGISTRY_PASSWORD=
+
+# ------------------------------------------------------------------------------
+# Slack
+# ------------------------------------------------------------------------------
+SLACK_BOT_API_TOKEN_NAME=
+SLACK_BOT_API_TOKEN=
+SLACK_USER_API_TOKEN_NAME=
+SLACK_USER_API_TOKEN=
+SLACK_CHANNEL=
+
+# ------------------------------------------------------------------------------
+# Postgres
+# ------------------------------------------------------------------------------
+# The defaults for Postgres are fine for local work but if you happen to want
+# a different version, port, or password you can set them here.
+# ------------------------------------------------------------------------------
+#POSTGRES_VERSION=10.6
+#POSTGRES_PORT=5432
+#POSTRES_PASSWORD=q1q1q1q1
+
+# ------------------------------------------------------------------------------
+# Development
+# ------------------------------------------------------------------------------
+# Uncomment this if you are building Concord/Tasks locally and want to resolve
+# them from your local maven repository in ~/.m2/repository
+
+#useLocalMavenRepoWithAgent=true
+#useLocalMavenRepoWithDocker=true
+#useHostDockerDaemon=true
+#minikube=true

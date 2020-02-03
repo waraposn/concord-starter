@@ -1,0 +1,23 @@
+concord-server {
+
+  external {
+    url = "EXTERNAL_URL"
+  }
+
+  db {
+    url="jdbc:postgresql://db:5432/postgres"
+    appPassword = "POSTGRES_PASSWORD"
+    inventoryPassword = "POSTGRES_PASSWORD"
+  }
+
+  secretStore {
+    serverPassword = "POSTGRES_PASSWORD_B64"
+    secretStoreSalt = "POSTGRES_PASSWORD_B64"
+    projectSecretSalt = "POSTGRES_PASSWORD_B64"
+  }
+
+  github {
+    githubDomain = "GITHUB_DOMAIN"
+    secret = "GITHUB_WEBHOOK_SECRET"
+  }
+}

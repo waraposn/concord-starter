@@ -1,0 +1,8 @@
+concord-agent {
+  docker {
+    extraVolumes = [
+        "DOCKER_HOST_PATH:CONTAINER_PATH",
+        "/var/run/docker.sock:/var/run/docker.sock"
+    ]
+  }
+}

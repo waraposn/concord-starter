@@ -1,0 +1,24 @@
+configuration:
+  runner:
+    events:
+      # This shows some nice visual debugging information in the console.
+      recordTaskInVars: true
+
+  # Concord has many capabilities that can be added in the form of plugins. Here
+  # we are declaring we need the git plugin, it will allow us to perform git
+  # operation like clone a repository.
+  dependencies:
+  - "mvn://com.walmartlabs.concord.plugins:git:1.22.0"
+
+flows:
+  default:
+  - task: git
+    in:
+      action: clone
+      url: https://github.com/concord-workflow/concord-alpine.git
+      workingDir: checkout
+
+  # Our git clone is in the `checkout` directory. So to `cat` the README.md
+  # the path is `cat checkout/README.md`
+  - docker: jvanzyl/concord-alpine
+    cmd: "cat checkout/README.md"

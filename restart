@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+source ./concord/setup
+
+docker rm -f agent server
+concord_server
+concord_agent
