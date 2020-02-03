@@ -22,6 +22,7 @@ SERVER_CONFIGURATION_TEMPLATE="${DIR}/concord/templates/server.conf.template"
 SERVER_CONFIGURATION="${DIR}/concord/config/server.conf"
 AGENT_CONFIGURATION_TEMPLATE="${DIR}/concord/templates/agent.conf.template"
 AGENT_CONFIGURATION="${DIR}/concord/config/agent.conf"
+CONCORD_DB_NAME="concord-db-${CONCORD_ORGANIZATION}-${CONCORD_ACCOUNT}"
 
 # ------------------------------------------------------------------------------
 # Support multiple organizations in the same Concord instance with a simple
@@ -56,7 +57,7 @@ concord_profile() {
   cp ${DIR}/concord/templates/profile.template ${CONCORD_DOTDIR}/default
   cp ${DIR}/concord/concord.bash ${CONCORD_DOTDIR}
   ln -s ${CONCORD_DOTDIR}/default ${CONCORD_DOTDIR}/profile
-  # AWS Helper to extract 
+  # AWS Helper to extract
   cp -r ${DIR}/concord/aws $CONCORD_DOTDIR
 }
 
@@ -98,8 +99,8 @@ concord_database() {
   docker run -d \
   -p ${POSTGRES_PORT}:5432 \
   -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
-  --name db \
-  --mount source=db,target=/var/lib/postgresql/data \
+  --name ${CONCORD_DB_NAME} \
+  --mount source=${CONCORD_DB_NAME},target=/var/lib/postgresql/data \
   library/postgres:${POSTGRES_VERSION}
 }
 
@@ -107,6 +108,7 @@ concord_server() {
 
   sed \
     -e "s@EXTERNAL_URL@${EXTERNAL_URL}@" \
+    -e "s@CONCORD_DB_NAME@${CONCORD_DB_NAME}@" \
     -e "s@POSTGRES_PASSWORD_B64@${POSTGRES_PASSWORD_B64}@" \
     -e "s@POSTGRES_PASSWORD@${POSTGRES_PASSWORD}@" \
     -e "s@POSTGRES_PORT@${POSTGRES_PORT}@" \
@@ -117,7 +119,7 @@ concord_server() {
   docker run -d \
   -p $PORT:8001 \
   --name server \
-  --link db \
+  --link ${CONCORD_DB_NAME} \
   -v ${SERVER_CONFIGURATION}:${SERVER_CONFIGURATION} \
   -e CONCORD_CFG_FILE=${SERVER_CONFIGURATION} \
   ${CONCORD_DOCKER_NAMESPACE}/concord-server:${CONCORD_VERSION}

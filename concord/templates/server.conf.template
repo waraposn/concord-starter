@@ -5,7 +5,7 @@ concord-server {
   }
 
   db {
-    url="jdbc:postgresql://db:5432/postgres"
+    url="jdbc:postgresql://CONCORD_DB_NAME:5432/postgres"
     appPassword = "POSTGRES_PASSWORD"
     inventoryPassword = "POSTGRES_PASSWORD"
   }

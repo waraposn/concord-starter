@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 
-docker rm -f agent server dind db
-docker volume rm -f db
+source ./concord/setup
+docker rm -f agent server dind ${CONCORD_DB_NAME}
+docker volume rm -f $CONCORD_DB_NAME
