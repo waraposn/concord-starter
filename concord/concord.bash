@@ -56,6 +56,8 @@ concord_profile() {
   cp ${DIR}/concord/templates/profile.template ${CONCORD_DOTDIR}/default
   cp ${DIR}/concord/concord.bash ${CONCORD_DOTDIR}
   ln -s ${CONCORD_DOTDIR}/default ${CONCORD_DOTDIR}/profile
+  # AWS Helper to extract 
+  cp -r ${DIR}/concord/aws $CONCORD_DOTDIR
 }
 
 concord_show_variables() {
