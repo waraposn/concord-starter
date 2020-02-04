@@ -198,18 +198,6 @@ concord_agent() {
     mavenRepoForDocker=""
   fi
 
-  echo docker run -d \
-  --name agent \
-  -v "/tmp:/tmp" \
-  ${localMavenRepoMount} \
-  ${mavenRepoForDocker} \
-  -e CONCORD_DOCKER_LOCAL_MODE=${CONCORD_DOCKER_LOCAL_MODE} \
-  -e DOCKER_HOST=${DOCKER_HOST} \
-  -e SERVER_API_BASE_URL=${SERVER_API_BASE_URL} \
-  -e SERVER_WEBSOCKET_URL=${SERVER_WEBSOCKET_URL} \
-  ${NETWORK_OPTIONS} \
-  ${CONCORD_DOCKER_NAMESPACE}/concord-agent:${CONCORD_VERSION}
-
   docker run -d \
   --name agent \
   -v "/tmp:/tmp" \
