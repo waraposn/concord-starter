@@ -2,7 +2,7 @@
 
 source ./concord/setup
 
-docker rm -f agent server dind db
+docker rm -f agent server dind $CONCORD_DB_NAME
 
 concord_show_variables
 concord_docker_initialize
