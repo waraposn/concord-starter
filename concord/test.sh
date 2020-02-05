@@ -8,12 +8,11 @@ echo "Submitting verification process..."
 # Submit process
 RESULT=`curl --silent -H "Authorization: ${CONCORD_API_TOKEN}" -F concord.yml=@test.yaml http://${CONCORD_HOST_PORT}/api/v1/process`
 #echo ${RESULT}
-ID=`echo ${RESULT} | jq -r .instanceId`
+ID=`echo ${RESULT} | jq -r .instanceId | tr -d '"\r\n'`
 echo ${ID}
-echo
 
 echo "Waiting for the Concord process to finish"
-while [ "$(curl --silent -H "Authorization: ${CONCORD_API_TOKEN}" http://${CONCORD_HOST_PORT}/api/v1/process/${ID} | jq -r .status)" != "FINISHED" ]
+while [ "$(curl --silent -H "Authorization: ${CONCORD_API_TOKEN}" http://${CONCORD_HOST_PORT}/api/v1/process/${ID} | jq -r .status | tr -d '"\r\n')" != "FINISHED" ]
 do
   printf '.'
   sleep 2

@@ -11,4 +11,22 @@ upsearch () {
 ROOTFILE=`upsearch .gitignore`
 DIR=`dirname $ROOTFILE`
 
+OPEN_CMD=open
+OS_NAME=`uname -s`
+
+# Customize commands depending on OS
+if [ "${OS_NAME}" = "Linux" ];
+then
+
+  OPEN_CMD=xdg-open
+
+elif [[ "${OS_NAME}" = "CYGWIN"* ]];
+then
+
+  # If ${WIN_DIR} variable is available then we are running Cygwin on Windows
+  WIN_DIR=`echo $DIR | sed -r "s/^\/cygdrive\/([a-z])\/(.+)$/\1:\/\2/"`
+  OPEN_CMD=cygstart
+
+fi
+
 source ${DIR}/concord/concord.bash
