@@ -30,7 +30,8 @@ SERVER_CONFIGURATION="${DIR}/${SERVER_CONFIGURATION_RELATIVE_PATH}"
 # Agent configuration
 # ------------------------------------------------------------------------------
 AGENT_CONFIGURATION_TEMPLATE="${DIR}/concord/templates/agent.conf.template"
-AGENT_CONFIGURATION="${DIR}/concord/config/agent.conf"
+AGENT_CONFIGURATION_RELATIVE_PATH="concord/config/agent.conf"
+AGENT_CONFIGURATION="${DIR}/${AGENT_CONFIGURATION_RELATIVE_PATH}"
 
 # ------------------------------------------------------------------------------
 # Database configuration
@@ -149,17 +150,14 @@ concord_server() {
     -e "s@GITHUB_WEBHOOK_SECRET@${GITHUB_WEBHOOK_SECRET}@" \
     $SERVER_CONFIGURATION_TEMPLATE > $SERVER_CONFIGURATION
 
-  server_conf_volume_mount_dir=${SERVER_CONFIGURATION}
-  if [ "${WIN_DIR}" != "" ]
-  then
-    server_conf_volume_mount_dir="${WIN_DIR}/${SERVER_CONFIGURATION_RELATIVE_PATH}"
-  fi
+  SERVER_CONFIGURATION_MOUNT=${SERVER_CONFIGURATION}
+  [ ! -z "${WIN_DIR}" ] && SERVER_CONFIGURATION_MOUNT="${WIN_DIR}/${SERVER_CONFIGURATION_RELATIVE_PATH}"
 
   docker run -d \
   -p $PORT:8001 \
   --name server \
   --link ${CONCORD_DB_NAME} \
-  -v ${server_conf_volume_mount_dir}:${SERVER_CONFIGURATION} \
+  -v ${SERVER_CONFIGURATION_MOUNT}:${SERVER_CONFIGURATION} \
   -e CONCORD_CFG_FILE=${SERVER_CONFIGURATION} \
   ${CONCORD_DOCKER_NAMESPACE}/concord-server:${CONCORD_VERSION}
 
@@ -226,7 +224,11 @@ concord_agent() {
 
   if [ ! -z "${useLocalMavenRepoWithDocker}" -a "${useLocalMavenRepoWithDocker}" = "true" ]
   then
-    mavenRepoForDocker="-v ${AGENT_CONFIGURATION}:/opt/concord/conf/agent.conf:ro \
+
+    AGENT_CONFIGURATION_MOUNT=${SERVER_CONFIGURATION}
+    [ ! -z "${WIN_DIR}" ] && AGENT_CONFIGURATION_MOUNT="${WIN_DIR}/${AGENT_CONFIGURATION_RELATIVE_PATH}"
+
+    mavenRepoForDocker="-v ${AGENT_CONFIGURATION_MOUNT}:/opt/concord/conf/agent.conf:ro \
                         -e CONCORD_CFG_FILE=/opt/concord/conf/agent.conf"
 
     sed \
