@@ -1,7 +1,7 @@
 # ------------------------------------------------------------------------------
 # Concord
 # ------------------------------------------------------------------------------
-CONCORD_VERSION=1.37.1
+CONCORD_VERSION=1.40.0
 CONCORD_ORGANIZATION=${USER}
 CONCORD_DOCKER_NAMESPACE=walmartlabs
 CONCORD_HOST_PORT=localhost:8001
