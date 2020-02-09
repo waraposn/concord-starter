@@ -18,11 +18,29 @@ CONCORD_ORGANIZATION=${CONCORD_ORGANIZATION:-concord}
 CONCORD_DOCKER_NAMESPACE=${CONCORD_DOCKER_NAMESPACE:-walmartlabs}
 CONCORD_HOST_PORT=${CONCORD_HOST_PORT:-localhost:8080}
 PORT=`echo $CONCORD_HOST_PORT | sed "s/^.*://"`
+
+# ------------------------------------------------------------------------------
+# Server configuration
+# ------------------------------------------------------------------------------
 SERVER_CONFIGURATION_TEMPLATE="${DIR}/concord/templates/server.conf.template"
 SERVER_CONFIGURATION_RELATIVE_PATH="concord/config/server.conf"
 SERVER_CONFIGURATION="${DIR}/${SERVER_CONFIGURATION_RELATIVE_PATH}"
+
+# ------------------------------------------------------------------------------
+# Agent configuration
+# ------------------------------------------------------------------------------
 AGENT_CONFIGURATION_TEMPLATE="${DIR}/concord/templates/agent.conf.template"
 AGENT_CONFIGURATION="${DIR}/concord/config/agent.conf"
+
+# ------------------------------------------------------------------------------
+# Database configuration
+# ------------------------------------------------------------------------------
+# We give this a rather elaborate name just in case you have created a
+# Concord instance with another profile that you want preserved while you're
+# working with another instance. For example I've created a Concord instance
+# to create resources with Terraform and I don't want to lose the Terraform
+# state stored in Concord's database.
+# ------------------------------------------------------------------------------
 CONCORD_DB_NAME="concord-db-${CONCORD_ORGANIZATION}-${CONCORD_ACCOUNT}"
 
 # ------------------------------------------------------------------------------
