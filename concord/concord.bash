@@ -19,7 +19,8 @@ CONCORD_DOCKER_NAMESPACE=${CONCORD_DOCKER_NAMESPACE:-walmartlabs}
 CONCORD_HOST_PORT=${CONCORD_HOST_PORT:-localhost:8080}
 PORT=`echo $CONCORD_HOST_PORT | sed "s/^.*://"`
 SERVER_CONFIGURATION_TEMPLATE="${DIR}/concord/templates/server.conf.template"
-SERVER_CONFIGURATION="${DIR}/concord/config/server.conf"
+SERVER_CONFIGURATION_RELATIVE_PATH="concord/config/server.conf"
+SERVER_CONFIGURATION="${DIR}/${SERVER_CONFIGURATION_RELATIVE_PATH}"
 AGENT_CONFIGURATION_TEMPLATE="${DIR}/concord/templates/agent.conf.template"
 AGENT_CONFIGURATION="${DIR}/concord/config/agent.conf"
 CONCORD_DB_NAME="concord-db-${CONCORD_ORGANIZATION}-${CONCORD_ACCOUNT}"
@@ -54,9 +55,16 @@ CURL_WITH_OUTPUT="curl -L -sS"
 
 concord_profile() {
   mkdir -p ${CONCORD_DOTDIR} > /dev/null 2>&1
-  cp ${DIR}/concord/templates/profile.template ${CONCORD_DOTDIR}/default
+  concord_def_profile_file="${CONCORD_DOTDIR}/default";
+  if [ -f ${concord_def_profile_file} ]
+  then
+    echo "Concord profile file [${concord_def_profile_file}] allready exists. Ommiting override."
+  else
+    cp ${DIR}/concord/templates/profile.template ${concord_def_profile_file}
+  fi
+  rm ${CONCORD_DOTDIR}/profile
+  ln -s ${concord_def_profile_file} ${CONCORD_DOTDIR}/profile
   cp ${DIR}/concord/concord.bash ${CONCORD_DOTDIR}
-  ln -s ${CONCORD_DOTDIR}/default ${CONCORD_DOTDIR}/profile
   # AWS Helper to extract
   cp -r ${DIR}/concord/aws $CONCORD_DOTDIR
 }
@@ -84,6 +92,13 @@ concord_show_variables() {
 }
 
 concord_docker_initialize() {
+
+  # If we are on windows enforce TimeSync service restart in HyperV
+  if [ "${WIN_DIR}" != "" ]
+  then
+    powershell -ExecutionPolicy Bypass -Command "${WIN_DIR}\concord\win_docker_ts_01.ps1 ${WIN_DIR}\concord"
+  fi
+
   concord_database
   concord_server
   # We run dind because we need a docker daemon for the Concord Docker task to use. But if you are
@@ -116,11 +131,17 @@ concord_server() {
     -e "s@GITHUB_WEBHOOK_SECRET@${GITHUB_WEBHOOK_SECRET}@" \
     $SERVER_CONFIGURATION_TEMPLATE > $SERVER_CONFIGURATION
 
+  server_conf_volume_mount_dir=${SERVER_CONFIGURATION}
+  if [ "${WIN_DIR}" != "" ]
+  then
+    server_conf_volume_mount_dir="${WIN_DIR}/${SERVER_CONFIGURATION_RELATIVE_PATH}"
+  fi
+
   docker run -d \
   -p $PORT:8001 \
   --name server \
   --link ${CONCORD_DB_NAME} \
-  -v ${SERVER_CONFIGURATION}:${SERVER_CONFIGURATION} \
+  -v ${server_conf_volume_mount_dir}:${SERVER_CONFIGURATION} \
   -e CONCORD_CFG_FILE=${SERVER_CONFIGURATION} \
   ${CONCORD_DOCKER_NAMESPACE}/concord-server:${CONCORD_VERSION}
 
