@@ -3,9 +3,26 @@
 # ------------------------------------------------------------------------------
 # Concord
 # ------------------------------------------------------------------------------
-CONCORD_DOTDIR=$HOME/.concord
+CONCORD_DOTDIR="$HOME/.concord"
 CONCORD_PROFILE=${CONCORD_DOTDIR}/profile
 [ -f ${CONCORD_PROFILE} ] && source ${CONCORD_PROFILE}
+
+# ------------------------------------------------------------------------------
+# OS Specific varaibles
+# ------------------------------------------------------------------------------
+OS_NAME=`uname -s`
+IS_WIN=false
+OPEN_CMD=open
+
+# Customize commands and variables depending on OS
+if [ "${OS_NAME}" = "Linux" ];
+then
+  OPEN_CMD=xdg-open
+elif [[ "${OS_NAME}" = "CYGWIN"* ]];
+then
+  OPEN_CMD=cygstart
+  IS_WIN=true
+fi
 
 # Running minikube locally for development so determine the host and port by asking minikube
 if [ ! -z "${minikube}" -a "${minikube}" = "true" ]
@@ -67,26 +84,10 @@ DIND_CONTAINER="docker:stable-dind"
 # ------------------------------------------------------------------------------
 # AWS
 # ------------------------------------------------------------------------------
-GET_AWS_PROFILE="${CONCORD_DOTDIR}/aws/get-aws-profile.sh"
+GET_AWS_PROFILE="${CONCORD_DOTDIR}/helpers/get-aws-profile.sh"
 
 CURL="curl -L -sS -o /dev/null "
 CURL_WITH_OUTPUT="curl -L -sS"
-
-concord_profile() {
-  mkdir -p ${CONCORD_DOTDIR} > /dev/null 2>&1
-  concord_def_profile_file="${CONCORD_DOTDIR}/default";
-  if [ -f ${concord_def_profile_file} ]
-  then
-    echo "Concord profile file [${concord_def_profile_file}] allready exists. Ommiting override."
-  else
-    cp ${DIR}/concord/templates/profile.template ${concord_def_profile_file}
-  fi
-  rm ${CONCORD_DOTDIR}/profile
-  ln -s ${concord_def_profile_file} ${CONCORD_DOTDIR}/profile
-  cp ${DIR}/concord/concord.bash ${CONCORD_DOTDIR}
-  # AWS Helper to extract
-  cp -r ${DIR}/concord/aws $CONCORD_DOTDIR
-}
 
 concord_show_variables() {
   echo
@@ -111,13 +112,7 @@ concord_show_variables() {
 }
 
 concord_docker_initialize() {
-
-  # If we are on windows enforce TimeSync service restart in HyperV
-  if [ "${WIN_DIR}" != "" ]
-  then
-    powershell -ExecutionPolicy Bypass -Command "${WIN_DIR}\concord\win_docker_ts_01.ps1 ${WIN_DIR}\concord"
-  fi
-
+  concord_docker_win_ts
   concord_database
   concord_server
   # We run dind because we need a docker daemon for the Concord Docker task to use. But if you are
@@ -127,6 +122,18 @@ concord_docker_initialize() {
     concord_dind
   fi
   concord_agent
+}
+
+concord_win_dir() {
+    cygpath --windows $1
+}
+
+concord_docker_win_ts() {
+  # If we are on windows enforce TimeSync service restart in HyperV
+  if ${IS_WIN}
+  then
+    powershell -ExecutionPolicy Bypass -Command "$(concord_win_dir $CONCORD_DOTDIR)\helpers\win_docker_ts_01.ps1 $(concord_win_dir $CONCORD_DOTDIR)\helpers"
+  fi
 }
 
 concord_database() {
@@ -151,7 +158,7 @@ concord_server() {
     $SERVER_CONFIGURATION_TEMPLATE > $SERVER_CONFIGURATION
 
   SERVER_CONFIGURATION_MOUNT=${SERVER_CONFIGURATION}
-  [ ! -z "${WIN_DIR}" ] && SERVER_CONFIGURATION_MOUNT="${WIN_DIR}/${SERVER_CONFIGURATION_RELATIVE_PATH}"
+  $IS_WIN && SERVER_CONFIGURATION_MOUNT="$(concord_win_dir $DIR)\\${SERVER_CONFIGURATION_RELATIVE_PATH}"
 
   docker run -d \
   -p $PORT:8001 \
@@ -226,7 +233,7 @@ concord_agent() {
   then
 
     AGENT_CONFIGURATION_MOUNT=${SERVER_CONFIGURATION}
-    [ ! -z "${WIN_DIR}" ] && AGENT_CONFIGURATION_MOUNT="${WIN_DIR}/${AGENT_CONFIGURATION_RELATIVE_PATH}"
+    $IS_WIN && AGENT_CONFIGURATION_MOUNT="$(concord_win_dir $DIR)\\${AGENT_CONFIGURATION_RELATIVE_PATH}"
 
     mavenRepoForDocker="-v ${AGENT_CONFIGURATION_MOUNT}:/opt/concord/conf/agent.conf:ro \
                         -e CONCORD_CFG_FILE=/opt/concord/conf/agent.conf"
