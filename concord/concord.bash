@@ -37,18 +37,18 @@ CONCORD_HOST_PORT=${CONCORD_HOST_PORT:-localhost:8080}
 PORT=`echo $CONCORD_HOST_PORT | sed "s/^.*://"`
 
 # ------------------------------------------------------------------------------
-# Server configuration
+# Configuration templates
 # ------------------------------------------------------------------------------
-SERVER_CONFIGURATION_TEMPLATE="${DIR}/concord/templates/server.conf.template"
-SERVER_CONFIGURATION_RELATIVE_PATH="concord/config/server.conf"
-SERVER_CONFIGURATION="${DIR}/${SERVER_CONFIGURATION_RELATIVE_PATH}"
+CONFIGURATION_TEMPLATE_OUTPUT_DIR="${DIR}/target"
+mkdir -p $CONFIGURATION_TEMPLATE_OUTPUT_DIR
 
-# ------------------------------------------------------------------------------
+# Server configuration
+SERVER_CONFIGURATION_TEMPLATE="${DIR}/concord/templates/server.conf.template"
+SERVER_CONFIGURATION_RELATIVE_PATH="/server.conf"
+
 # Agent configuration
-# ------------------------------------------------------------------------------
 AGENT_CONFIGURATION_TEMPLATE="${DIR}/concord/templates/agent.conf.template"
-AGENT_CONFIGURATION_RELATIVE_PATH="concord/config/agent.conf"
-AGENT_CONFIGURATION="${DIR}/${AGENT_CONFIGURATION_RELATIVE_PATH}"
+AGENT_CONFIGURATION_RELATIVE_PATH="/agent.conf"
 
 # ------------------------------------------------------------------------------
 # Database configuration
@@ -93,21 +93,21 @@ concord_show_variables() {
   echo
   echo "Using the following values:"
   echo
-  echo "           WORKING_DIRECTORY = ${DIR}"
-  echo "             CONCORD_PROFILE = ${CONCORD_PROFILE}"
-  echo "             CONCORD_VERSION = ${CONCORD_VERSION}"
-  echo "        CONCORD_ORGANIZATION = ${CONCORD_ORGANIZATION}"
-  echo "CONCORD_SERVER_CONFIGURATION = ${SERVER_CONFIGURATION}"
-  echo "  AGENT_SERVER_CONFIGURATION = ${AGENT_CONFIGURATION}"
-  echo "           CONCORD_HOST_PORT = ${CONCORD_HOST_PORT}"
-  echo "           CONCORD_API_TOKEN = ${CONCORD_API_TOKEN}"
-  echo "            POSTGRES_VERSION = ${POSTGRES_VERSION}"
-  echo "           POSTGRES_PASSWORD = ${POSTGRES_PASSWORD}"
-  echo "               POSTGRES_PORT = ${POSTGRES_PORT}"
-  echo "                 AWS_KEYPAIR = ${AWS_KEYPAIR}"
-  echo "                     AWS_PEM = ${AWS_PEM}"
-  echo "             AWS_CREDENTIALS = ${AWS_CREDENTIALS}"
-  echo "                 AWS_PROFILE = ${AWS_PROFILE}"
+  echo "               WORKING_DIRECTORY = ${DIR}"
+  echo "                 CONCORD_PROFILE = ${CONCORD_PROFILE}"
+  echo "                 CONCORD_VERSION = ${CONCORD_VERSION}"
+  echo "            CONCORD_ORGANIZATION = ${CONCORD_ORGANIZATION}"
+  echo "CONCORD_SERVER_CONFIGURATION_TPL = ${SERVER_CONFIGURATION_TEMPLATE}"
+  echo "  AGENT_SERVER_CONFIGURATION_TPL = ${AGENT_CONFIGURATION_TEMPLATE}"
+  echo "               CONCORD_HOST_PORT = ${CONCORD_HOST_PORT}"
+  echo "               CONCORD_API_TOKEN = ${CONCORD_API_TOKEN}"
+  echo "                POSTGRES_VERSION = ${POSTGRES_VERSION}"
+  echo "               POSTGRES_PASSWORD = ${POSTGRES_PASSWORD}"
+  echo "                   POSTGRES_PORT = ${POSTGRES_PORT}"
+  echo "                     AWS_KEYPAIR = ${AWS_KEYPAIR}"
+  echo "                         AWS_PEM = ${AWS_PEM}"
+  echo "                 AWS_CREDENTIALS = ${AWS_CREDENTIALS}"
+  echo "                     AWS_PROFILE = ${AWS_PROFILE}"
   echo
 }
 
@@ -147,6 +147,8 @@ concord_database() {
 
 concord_server() {
 
+  SERVER_CONFIGURATION_MOUNT="${CONFIGURATION_TEMPLATE_OUTPUT_DIR}/${SERVER_CONFIGURATION_RELATIVE_PATH}"
+
   sed \
     -e "s@EXTERNAL_URL@${EXTERNAL_URL}@" \
     -e "s@CONCORD_DB_NAME@${CONCORD_DB_NAME}@" \
@@ -155,17 +157,17 @@ concord_server() {
     -e "s@POSTGRES_PORT@${POSTGRES_PORT}@" \
     -e "s@GITHUB_DOMAIN@${GITHUB_DOMAIN}@" \
     -e "s@GITHUB_WEBHOOK_SECRET@${GITHUB_WEBHOOK_SECRET}@" \
-    $SERVER_CONFIGURATION_TEMPLATE > $SERVER_CONFIGURATION
+    $SERVER_CONFIGURATION_TEMPLATE > ${SERVER_CONFIGURATION_MOUNT}
 
-  SERVER_CONFIGURATION_MOUNT=${SERVER_CONFIGURATION}
-  $IS_WIN && SERVER_CONFIGURATION_MOUNT="$(concord_win_dir $DIR)\\${SERVER_CONFIGURATION_RELATIVE_PATH}"
+  $IS_WIN && SERVER_CONFIGURATION_MOUNT="$(concord_win_dir $SERVER_CONFIGURATION_MOUNT)"
+  DOCKER_CONFIGURATION_MOUNT_TARGET="/concord/conf/${SERVER_CONFIGURATION_RELATIVE_PATH}"
 
   docker run -d \
   -p $PORT:8001 \
   --name server \
   --link ${CONCORD_DB_NAME} \
-  -v ${SERVER_CONFIGURATION_MOUNT}:${SERVER_CONFIGURATION} \
-  -e CONCORD_CFG_FILE=${SERVER_CONFIGURATION} \
+  -v ${SERVER_CONFIGURATION_MOUNT}:${DOCKER_CONFIGURATION_MOUNT_TARGET} \
+  -e CONCORD_CFG_FILE=${DOCKER_CONFIGURATION_MOUNT_TARGET} \
   ${CONCORD_DOCKER_NAMESPACE}/concord-server:${CONCORD_VERSION}
 
   echo
@@ -232,16 +234,19 @@ concord_agent() {
   if [ ! -z "${useLocalMavenRepoWithDocker}" -a "${useLocalMavenRepoWithDocker}" = "true" ]
   then
 
-    AGENT_CONFIGURATION_MOUNT=${SERVER_CONFIGURATION}
-    $IS_WIN && AGENT_CONFIGURATION_MOUNT="$(concord_win_dir $DIR)\\${AGENT_CONFIGURATION_RELATIVE_PATH}"
-
-    mavenRepoForDocker="-v ${AGENT_CONFIGURATION_MOUNT}:/opt/concord/conf/agent.conf:ro \
-                        -e CONCORD_CFG_FILE=/opt/concord/conf/agent.conf"
+    AGENT_CONFIGURATION_MOUNT="${CONFIGURATION_TEMPLATE_OUTPUT_DIR}/${AGENT_CONFIGURATION_RELATIVE_PATH}"
 
     sed \
       -e "s@DOCKER_HOST_PATH@${DOCKER_HOST_PATH}@" \
       -e "s@CONTAINER_PATH@${CONTAINER_PATH}@" \
-      $AGENT_CONFIGURATION_TEMPLATE > $AGENT_CONFIGURATION
+      $AGENT_CONFIGURATION_TEMPLATE > ${AGENT_CONFIGURATION_MOUNT}
+
+    $IS_WIN && AGENT_CONFIGURATION_MOUNT="$(concord_win_dir ${AGENT_CONFIGURATION_MOUNT})"
+    DOCKER_CONFIGURATION_MOUNT_TARGET="/opt/concord/conf/${AGENT_CONFIGURATION_RELATIVE_PATH}"
+
+    mavenRepoForDocker="-v ${AGENT_CONFIGURATION_MOUNT}:${DOCKER_CONFIGURATION_MOUNT_TARGET}:ro \
+                        -e CONCORD_CFG_FILE=${DOCKER_CONFIGURATION_MOUNT_TARGET}"
+
   else
     mavenRepoForDocker=""
   fi
