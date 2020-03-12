@@ -4,7 +4,7 @@ This provides an initial setup for Concord that will allow you to learn, experim
 
 ## Step 1: create a profile
 
-`./00-concord-setup.sh`
+`./00-concord-profile.sh`
 
 This will create the necessary files to start with Concord in your `~/.concord` directory. You will likely want to edit the generated files to suit your needs before you initialize Concord in the next step.
 
