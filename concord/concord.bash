@@ -206,13 +206,6 @@ concord_agent() {
   # development so that Concord plugins you are working on locally are
   # available for the agent to use directly.
   # ----------------------------------------------------------------------------
-  if [ ! -z "${useLocalMavenRepoWithAgent}" -a "${useLocalMavenRepoWithAgent}" = "true" ]
-  then
-    localMavenRepoMount="-v ${HOME}/.m2/repository:/home/concord/.m2/repository"
-  else
-    localMavenRepoMount=""
-  fi
-
   if [ ! -z "${useHostDockerDaemon}" -a "${useHostDockerDaemon}" = "true" ]
   then
     DOCKER_HOST_PATH=${HOME}/.m2/repository
@@ -221,7 +214,7 @@ concord_agent() {
     SERVER_API_BASE_URL=http://localhost:${PORT}
     SERVER_WEBSOCKET_URL=ws://localhost:${PORT}/websocket
     NETWORK_OPTIONS="--net=host"
-    localMavenRepoMount="-v ${HOME}/.m2/repository:/home/concord/.m2/repository"
+    useLocalMavenRepoWithAgent="true"
   else
     DOCKER_HOST_PATH=${DIND_HOST_PATH}
     CONCORD_DOCKER_LOCAL_MODE=false
@@ -229,6 +222,15 @@ concord_agent() {
     SERVER_API_BASE_URL=http://server:8001
     SERVER_WEBSOCKET_URL=ws://server:8001/websocket
     NETWORK_OPTIONS="--link server --link dind"
+  fi
+
+  if [ ! -z "${useLocalMavenRepoWithAgent}" -a "${useLocalMavenRepoWithAgent}" = "true" ]
+  then
+    local homeMount=${HOME}
+    $IS_WIN && homeMount="$(concord_win_dir ${homeMount})"
+    localMavenRepoMount="-v ${homeMount}/.m2/repository:/home/concord/.m2/repository"
+  else
+    localMavenRepoMount=""
   fi
 
   if [ ! -z "${useLocalMavenRepoWithDocker}" -a "${useLocalMavenRepoWithDocker}" = "true" ]
