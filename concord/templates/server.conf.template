@@ -8,6 +8,10 @@ concord-server {
     url="jdbc:postgresql://CONCORD_DB_NAME:5432/postgres"
     appPassword = "POSTGRES_PASSWORD"
     inventoryPassword = "POSTGRES_PASSWORD"
+
+    changeLogParameters {
+      defaultAdminToken = "CONCORD_API_TOKEN"
+    }
   }
 
   secretStore {
