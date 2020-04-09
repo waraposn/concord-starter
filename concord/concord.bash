@@ -505,10 +505,10 @@ concord_aws_initialize_secrets() {
 
       echo "Adding AWS keypair '$AWS_KEYPAIR' for organization '$CONCORD_ORGANIZATION'..."
       ssh-keygen -f $AWS_PEM -y > $PUBLIC_KEY
-      concord_keypair "${AWS_NS}${AWS_ACCOUNT}-${AWS_KEYPAIR}" $PUBLIC_KEY $AWS_PEM
+      concord_keypair "${AWS_NS}${AWS_KEYPAIR}" $PUBLIC_KEY $AWS_PEM
 
       echo "Adding AWS PEM file for organization '$CONCORD_ORGANIZATION'..."
-      concord_secret_from_file "${AWS_NS}${AWS_ACCOUNT}-${AWS_KEYPAIR}-pem" ${AWS_PEM}
+      concord_secret_from_file "${AWS_NS}${AWS_KEYPAIR}-pem" ${AWS_PEM}
 
       rm -f $PUBLIC_KEY
     fi
