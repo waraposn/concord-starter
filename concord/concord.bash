@@ -40,7 +40,6 @@ PORT=`echo $CONCORD_HOST_PORT | sed "s/^.*://"`
 # Configuration templates
 # ------------------------------------------------------------------------------
 CONFIGURATION_TEMPLATE_OUTPUT_DIR="${DIR}/target"
-mkdir -p $CONFIGURATION_TEMPLATE_OUTPUT_DIR
 
 # Server configuration
 SERVER_CONFIGURATION_TEMPLATE="${DIR}/concord/templates/server.conf.template"
@@ -147,11 +146,13 @@ concord_database() {
 
 concord_server() {
 
+  mkdir -p $CONFIGURATION_TEMPLATE_OUTPUT_DIR > /dev/null 2>&1
   SERVER_CONFIGURATION_MOUNT="${CONFIGURATION_TEMPLATE_OUTPUT_DIR}/${SERVER_CONFIGURATION_RELATIVE_PATH}"
 
   sed \
     -e "s@EXTERNAL_URL@${EXTERNAL_URL}@" \
     -e "s@CONCORD_DB_NAME@${CONCORD_DB_NAME}@" \
+    -e "s@CONCORD_API_TOKEN@${CONCORD_API_TOKEN}@" \
     -e "s@POSTGRES_PASSWORD_B64@${POSTGRES_PASSWORD_B64}@" \
     -e "s@POSTGRES_PASSWORD@${POSTGRES_PASSWORD}@" \
     -e "s@POSTGRES_PORT@${POSTGRES_PORT}@" \
@@ -236,6 +237,7 @@ concord_agent() {
   if [ ! -z "${useLocalMavenRepoWithDocker}" -a "${useLocalMavenRepoWithDocker}" = "true" ]
   then
 
+    mkdir -p $CONFIGURATION_TEMPLATE_OUTPUT_DIR > /dev/null 2>&1
     AGENT_CONFIGURATION_MOUNT="${CONFIGURATION_TEMPLATE_OUTPUT_DIR}/${AGENT_CONFIGURATION_RELATIVE_PATH}"
 
     sed \
