@@ -58,13 +58,7 @@ AGENT_CONFIGURATION_RELATIVE_PATH="/agent.conf"
 # to create resources with Terraform and I don't want to lose the Terraform
 # state stored in Concord's database.
 # ------------------------------------------------------------------------------
-CONCORD_DB_NAME="concord-db-${CONCORD_ORGANIZATION}-${CONCORD_ACCOUNT}"
-
-# ------------------------------------------------------------------------------
-# Support multiple organizations in the same Concord instance with a simple
-# namespace mechanism.
-# ------------------------------------------------------------------------------
-NS="${CONCORD_ACCOUNT}"
+CONCORD_DB_NAME="concord-db-${CONCORD_ORGANIZATION}"
 
 # ------------------------------------------------------------------------------
 # Postgres
@@ -474,12 +468,8 @@ concord_secret_delete() {
 
 concord_aws_initialize_secrets() {
 
-    # We have a base namespace, usually the organization, but in addition to
-    # that base namespace in AWS you almost always have to have credentials
-    # per account you are operating.
-    AWS_NS="${NS}-"
-    AWS_ACCESS_KEY_SECRET_ID="${AWS_NS}awsAccessKey";
-    AWS_ACCESS_SECRET_SECRET_ID="${AWS_NS}awsSecretKey"
+    AWS_ACCESS_KEY_SECRET_ID="${AWS_NAMESPACE}-awsAccessKey";
+    AWS_ACCESS_SECRET_SECRET_ID="${AWS_NAMESPACE}-awsSecretKey"
 
     if [ ! -z "$AWS_CREDENTIALS" ] && [ -f "$AWS_CREDENTIALS" ]
     then
@@ -505,10 +495,10 @@ concord_aws_initialize_secrets() {
 
       echo "Adding AWS keypair '$AWS_KEYPAIR' for organization '$CONCORD_ORGANIZATION'..."
       ssh-keygen -f $AWS_PEM -y > $PUBLIC_KEY
-      concord_keypair "${AWS_NS}${AWS_KEYPAIR}" $PUBLIC_KEY $AWS_PEM
+      concord_keypair "${AWS_KEYPAIR}" $PUBLIC_KEY $AWS_PEM
 
       echo "Adding AWS PEM file for organization '$CONCORD_ORGANIZATION'..."
-      concord_secret_from_file "${AWS_NS}${AWS_KEYPAIR}-pem" ${AWS_PEM}
+      concord_secret_from_file "${AWS_KEYPAIR}-pem" ${AWS_PEM}
 
       rm -f $PUBLIC_KEY
     fi
@@ -522,10 +512,9 @@ concord_aws_initialize_secrets() {
 # ----------------------------------------------------------------------------------------------------------------------
 concord_github_initialize_secrets() {
 
-  GH_NS="${NS}-"
-  GH_USER_SECRET_ID="${GH_NS}gitHubUser"
-  GH_ACCESS_TOKEN_NAME="${GH_NS}gitHubAccessToken"
-  GH_WEBHOOK_SECRET_ID="${GH_NS}gitHubWebhookSecret"
+  GH_USER_SECRET_ID="gitHubUser"
+  GH_ACCESS_TOKEN_NAME="gitHubAccessToken"
+  GH_WEBHOOK_SECRET_ID="gitHubWebhookSecret"
 
   if [ ! -z $GH_ACCESS_TOKEN ]
   then
@@ -539,11 +528,9 @@ concord_github_initialize_secrets() {
 
 concord_docker_initialize_secrets() {
 
-  DOCKER_NS="${NS}-"
-
-  DOCKER_REGISTRY_SECRET_ID="${DOCKER_NS}dockerRegistry"
-  DOCKER_REGISTRY_USERNAME_SECRET_ID="${DOCKER_NS}dockerRegistryUsername"
-  DOCKER_REGISTRY_PASSWORD_SECRET_ID="${DOCKER_NS}dockerRegistryPassword"
+  DOCKER_REGISTRY_SECRET_ID="dockerRegistry"
+  DOCKER_REGISTRY_USERNAME_SECRET_ID="dockerRegistryUsername"
+  DOCKER_REGISTRY_PASSWORD_SECRET_ID="dockerRegistryPassword"
 
   if [ ! -z $DOCKER_REGISTRY_USERNAME ]
   then
@@ -556,9 +543,8 @@ concord_docker_initialize_secrets() {
 
 concord_slack_initialize_secrets() {
 
-  SLACK_NS="${NS}-"
-  SLACK_BOT_API_TOKEN_NAME="${SLACK_NS}slackBotToken"
-  SLACK_USER_API_TOKEN_NAME="${SLACK_NS}slackBotUserToken"
+  SLACK_BOT_API_TOKEN_NAME="slackBotToken"
+  SLACK_USER_API_TOKEN_NAME="slackBotUserToken"
 
   if [ ! -z $SLACK_BOT_API_TOKEN ]
   then
@@ -594,11 +580,9 @@ concord_server_initialize() {
 
   concord_secrets_initialize
 
-  HOST_NS="$NS"
-
   if [ ! -z "${CONCORD_EXTERNAL_HOST}" ]
   then
-    concord_secret "${HOST_NS}concord-host" ${CONCORD_EXTERNAL_HOST}
+    concord_secret "concord-host" ${CONCORD_EXTERNAL_HOST}
   fi
 }
 
