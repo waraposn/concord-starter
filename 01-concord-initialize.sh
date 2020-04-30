@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 source ./concord/setup
 
 concord_show_variables

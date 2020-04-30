@@ -97,10 +97,6 @@ concord_show_variables() {
   echo "                POSTGRES_VERSION = ${POSTGRES_VERSION}"
   echo "               POSTGRES_PASSWORD = ${POSTGRES_PASSWORD}"
   echo "                   POSTGRES_PORT = ${POSTGRES_PORT}"
-  echo "                     AWS_KEYPAIR = ${AWS_KEYPAIR}"
-  echo "                         AWS_PEM = ${AWS_PEM}"
-  echo "                 AWS_CREDENTIALS = ${AWS_CREDENTIALS}"
-  echo "                     AWS_PROFILE = ${AWS_PROFILE}"
   echo
 }
 
@@ -468,6 +464,9 @@ concord_secret_delete() {
 
 concord_aws_initialize_secrets() {
 
+  if [ ! -z "${AWS_USER}" ]; then
+    echo "Adding AWS secrets ..."
+
     AWS_ACCESS_KEY_SECRET_ID="${AWS_NAMESPACE}-awsAccessKey";
     AWS_ACCESS_SECRET_SECRET_ID="${AWS_NAMESPACE}-awsSecretKey"
 
@@ -502,6 +501,17 @@ concord_aws_initialize_secrets() {
 
       rm -f $PUBLIC_KEY
     fi
+  fi
+}
+
+concord_azure_initialize_secrets() {
+  if [ ! -z "${AZURE_SUBCRIPTION_ID}" ]; then
+    echo "Adding Azure secrets ..."
+    concord_secret "azure-subscriptionId" $AZURE_SUBCRIPTION_ID
+    concord_secret "azure-tenantId" $AZURE_TENANT_ID
+    concord_secret "azure-clientId" $AZURE_CLIENT_ID
+    concord_secret "azure-clientSecret" $AZURE_CLIENT_SECRET
+  fi
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -568,6 +578,8 @@ concord_secrets_initialize() {
   concord_organization $CONCORD_ORGANIZATION
   # Initialize AWS secrets
   concord_aws_initialize_secrets
+  # Initialize Azure secrets
+  concord_azure_initialize_secrets
   # Initialize GH secrets
   concord_github_initialize_secrets
   # Initialize Docker secrets
