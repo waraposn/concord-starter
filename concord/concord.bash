@@ -245,11 +245,27 @@ concord_agent() {
     mavenRepoForDocker=""
   fi
 
+  if [ ! -z "${useMinikubeConfigs}" -a "${useMinikubeConfigs}" = "true" ]
+  then
+    echo "Mounting local configs..."
+    # copy local config directories for mounting
+    cp -a $HOME/.minikube/. $HOME/.minikube_local/
+    cp -a $HOME/.kube/. $HOME/.kube_local/
+
+    # change minikube path in kube config to be read in agent container
+    sed -i '' -e  "s|$HOME|/home/concord|g" $HOME/.kube_local/config
+    mountLocalConfigs="-v $HOME/.kube_local:/home/concord/.kube \
+                       -v $HOME/.minikube_local:/home/concord/.minikube"
+  else
+    mountLocalConfigs=""
+  fi
+
   docker run -d \
   --name agent \
   -v "/tmp:/tmp" \
   ${localMavenRepoMount} \
   ${mavenRepoForDocker} \
+  ${mountLocalConfigs} \
   -e CONCORD_DOCKER_LOCAL_MODE=${CONCORD_DOCKER_LOCAL_MODE} \
   -e DOCKER_HOST=${DOCKER_HOST} \
   -e SERVER_API_BASE_URL=${SERVER_API_BASE_URL} \
